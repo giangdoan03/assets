@@ -1,0 +1,4 @@
+xoa cache Remove-Item -Recurse -Force node_modules/.cache, dist_electron
+
+Remove-Item -Recurse -Force node_modules/.cache, dist_electron
+npm run electron:serve
