@@ -1,0 +1,293 @@
+Bạn đúng, việc lưu email content vào bảng dữ liệu là cần thiết để người dùng có thể thay đổi nội dung email và vị trí các biến một cách linh hoạt. Dưới đây là cách thực hiện việc này:
+
+### 1. Tạo bảng trong MySQL để lưu template email
+
+```sql
+CREATE TABLE email_templates (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    template_name VARCHAR(100) NOT NULL,
+    content TEXT NOT NULL
+);
+```
+
+### 2. Tạo giao diện với TinyMCE để chỉnh sửa email template
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Template Editor</title>
+    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/5/tinymce.min.js" referrerpolicy="origin"></script>
+    <script>
+        tinymce.init({
+            selector: '#emailContent',
+            plugins: 'code',
+            toolbar: 'undo redo | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | code',
+            height: 400
+        });
+
+        function saveTemplate() {
+            const emailContent = tinymce.get('emailContent').getContent();
+            const templateName = document.getElementById('templateName').value;
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'save_template.php', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    alert('Template đã được lưu!');
+                }
+            };
+            xhr.send('template_name=' + encodeURIComponent(templateName) + '&content=' + encodeURIComponent(emailContent));
+        }
+    </script>
+</head>
+<body>
+    <h1>Chỉnh sửa Email Template</h1>
+    <form id="templateForm">
+        <label for="templateName">Tên Template:</label><br>
+        <input type="text" id="templateName" name="templateName" value="Template Mặc Định"><br><br>
+        <textarea id="emailContent">
+<p>Kính gửi quý cha mẹ học sinh em <strong>{{name}}</strong> ngày sinh <span>{{dob}}</span>.</p>
+<p>Hội đồng tuyển sinh lớp 6 trường THCS Thanh Xuân năm học 2024-2025</p>
+<p>Thông báo:</p>
+<p>Số báo danh: <strong>{{sbd}}</strong></p>
+<p>Phòng kiểm tra: <strong>{{room}}</strong></p>
+<p>Địa điểm kiểm tra: <strong>{{address}}</strong></p>
+<p>Ngày kiểm tra: <strong>04/06/2024</strong></p>
+<p>Sáng kiểm tra môn Tiếng Việt, Tiếng Anh. Chiều kiểm tra môn Toán</p>
+<p>Thời gian có mặt tại địa điểm kiểm tra: <strong>{{time}}</strong></p>
+<p style='margin: 5px 0'><strong>Lưu ý: Thí sinh sẽ nhận phiếu dự kiểm tra tại phòng kiểm tra</strong></p>
+<p>Trân trọng!</p>
+        </textarea><br><br>
+        <button type="button" onclick="saveTemplate()">Lưu Template</button>
+    </form>
+</body>
+</html>
+```
+
+### 3. Lưu template đã chỉnh sửa vào cơ sở dữ liệu
+
+```php
+<?php
+// save_template.php
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $templateName = $_POST['template_name'];
+    $content = $_POST['content'];
+    // Kết nối đến cơ sở dữ liệu
+    $servername = "localhost";
+    $username = "root";
+    $password = "";
+    $dbname = "your_database_name";
+
+    $conn = new mysqli($servername, $username, $password, $dbname);
+    if ($conn->connect_error) {
+        die("Connection failed: " . $conn->connect_error);
+    }
+
+    // Kiểm tra xem template đã tồn tại chưa
+    $sql = "SELECT id FROM email_templates WHERE template_name='$templateName'";
+    $result = $conn->query($sql);
+
+    if ($result->num_rows > 0) {
+        // Nếu tồn tại, cập nhật template
+        $sql = "UPDATE email_templates SET content='$content' WHERE template_name='$templateName'";
+    } else {
+        // Nếu không tồn tại, chèn template mới
+        $sql = "INSERT INTO email_templates (template_name, content) VALUES ('$templateName', '$content')";
+    }
+
+    if ($conn->query($sql) === TRUE) {
+        echo "Template đã được lưu!";
+    } else {
+        echo "Error: " . $sql . "<br>" . $conn->error;
+    }
+
+    $conn->close();
+}
+?>
+```
+
+### 4. Tải và hiển thị template trong TinyMCE
+
+```php
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Template Editor</title>
+    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/5/tinymce.min.js" referrerpolicy="origin"></script>
+    <script>
+        tinymce.init({
+            selector: '#emailContent',
+            plugins: 'code',
+            toolbar: 'undo redo | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | code',
+            height: 400
+        });
+
+        function saveTemplate() {
+            const emailContent = tinymce.get('emailContent').getContent();
+            const templateName = document.getElementById('templateName').value;
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'save_template.php', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    alert('Template đã được lưu!');
+                }
+            };
+            xhr.send('template_name=' + encodeURIComponent(templateName) + '&content=' + encodeURIComponent(emailContent));
+        }
+    </script>
+</head>
+<body>
+    <h1>Chỉnh sửa Email Template</h1>
+    <form id="templateForm">
+        <label for="templateName">Tên Template:</label><br>
+        <input type="text" id="templateName" name="templateName" value="Template Mặc Định"><br><br>
+        <textarea id="emailContent"><?php
+            // Kết nối đến cơ sở dữ liệu và lấy template
+            $servername = "localhost";
+            $username = "root";
+            $password = "";
+            $dbname = "your_database_name";
+
+            $conn = new mysqli($servername, $username, $password, $dbname);
+            if ($conn->connect_error) {
+                die("Connection failed: " . $conn->connect_error);
+            }
+
+            $templateName = 'Template Mặc Định'; // Tên template bạn muốn tải
+            $sql = "SELECT content FROM email_templates WHERE template_name='$templateName'";
+            $result = $conn->query($sql);
+
+            if ($result->num_rows > 0) {
+                $row = $result->fetch_assoc();
+                echo htmlspecialchars($row['content']);
+            } else {
+                echo "<p>Kính gửi quý cha mẹ học sinh em <strong>{{name}}</strong> ngày sinh <span>{{dob}}</span>.</p>
+                      <p>Hội đồng tuyển sinh lớp 6 trường THCS Thanh Xuân năm học 2024-2025</p>
+                      <p>Thông báo:</p>
+                      <p>Số báo danh: <strong>{{sbd}}</strong></p>
+                      <p>Phòng kiểm tra: <strong>{{room}}</strong></p>
+                      <p>Địa điểm kiểm tra: <strong>{{address}}</strong></p>
+                      <p>Ngày kiểm tra: <strong>04/06/2024</strong></p>
+                      <p>Sáng kiểm tra môn Tiếng Việt, Tiếng Anh. Chiều kiểm tra môn Toán</p>
+                      <p>Thời gian có mặt tại địa điểm kiểm tra: <strong>{{time}}</strong></p>
+                      <p style='margin: 5px 0'><strong>Lưu ý: Thí sinh sẽ nhận phiếu dự kiểm tra tại phòng kiểm tra</strong></p>
+                      <p>Trân trọng!</p>";
+            }
+
+            $conn->close();
+        ?></textarea><br><br>
+        <button type="button" onclick="saveTemplate()">Lưu Template</button>
+    </form>
+</body>
+</html>
+```
+
+### 5. Gửi email sử dụng template từ cơ sở dữ liệu
+
+```php
+<?php
+// send_email.php
+
+// Kết nối đến cơ sở dữ liệu và lấy template
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "your_database_name";
+
+$conn = new mysqli($servername, $username, $password, $dbname);
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+$templateName = 'Template Mặc Định'; // Tên template bạn muốn sử dụng
+$sql = "SELECT content FROM email_templates WHERE template_name='$templateName'";
+$result = $conn->query($sql);
+
+if ($result->num_rows > 0)
+
+ {
+    $row = $result->fetch_assoc();
+    $templateContent = $row['content'];
+
+    // Dữ liệu thay thế
+    $data = [
+        'name' => 'Nguyễn Văn A',
+        'dob' => '01/01/2000',
+        'sbd' => '123456',
+        'room' => 'Phòng 101',
+        'address' => '123 Đường ABC, Thành phố XYZ',
+        'time' => '8:00 AM'
+    ];
+
+    // Thay thế các biến trong template
+    foreach ($data as $key => $value) {
+        $templateContent = str_replace('{{' . $key . '}}', $value, $templateContent);
+    }
+
+    // Gửi email
+    $to = 'example@example.com';
+    $subject = 'Thông báo tuyển sinh';
+    $headers = "MIME-Version: 1.0" . "\r\n";
+    $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
+
+    if (mail($to, $subject, $templateContent, $headers)) {
+        echo "Email đã được gửi!";
+    } else {
+        echo "Lỗi khi gửi email.";
+    }
+} else {
+    echo "Không tìm thấy template!";
+}
+
+$conn->close();
+?>
+```
+
+### Giải thích:
+
+1. **Tạo bảng lưu trữ email templates:** Bảng `email_templates` có các cột `id`, `template_name`, và `content` để lưu trữ thông tin các template.
+
+2. **Giao diện TinyMCE:** Tạo một form với TinyMCE để người dùng có thể chỉnh sửa và lưu template.
+
+3. **Lưu template vào cơ sở dữ liệu:** Sử dụng PHP để lưu hoặc cập nhật template vào cơ sở dữ liệu khi người dùng nhấn nút "Lưu Template".
+
+4. **Tải và hiển thị template:** Khi người dùng muốn chỉnh sửa template, tải nội dung template từ cơ sở dữ liệu và hiển thị trong TinyMCE.
+
+5. **Gửi email:** Sử dụng template từ cơ sở dữ liệu, thay thế các biến bằng dữ liệu cụ thể và gửi email.
+
+Với các bước này, bạn sẽ có một hệ thống linh hoạt để chỉnh sửa, lưu trữ, và gửi email templates với các biến động.
+
+
+7Vjkcp@WisD43mg
+
+
+
+
+
+Chi phí thuê máy chủ
+1. Thuê máy chủ trong nước:
+- Chi phí: dự tính 339.000/tháng (khoảng 4.068.0000/năm)
+- Cấu hình (CPU:Intel® Xeon® E5-26XX / Gold 6138, CORE:3 Cores, SSD:50GB, RAM :3GB, băng thông không giới hạn)
+- Ưu điểm: tốc độ truy cập nhanh, bảo mật cao, tính ổn định cao
+- Hạn chế: dung lượng lưu trữ không cao (50GB) 
+2. Thuê máy chủ nước ngoài:
+- Cấu hình: 2vCPU cores, 8GB RAM, 100GB lưu trữ, 8TB băng thông
+- Chi phí: Dự tính 175k/tháng (giá đăng ký từ 24 tháng trở lên) (khoảng 4.200.000/2năm)
+- Ưu điểm: tốc độ truy cập bình thường, bảo mật mức độ tốt, tính ổn định cao, bộ nhớ lưu trữ lớn(100GB) chi phí thấp hơn
+- Hạn chế: cấu hình và độ ổn định không cao bằng máy chủ trong nước, phải đăng ký trên 2 năm thì tính giá rẻ.
+
+
+
+
+
+
+2 vCPU cores
+8 GB RAM
+100 GB NVMe disk space
+8 TB bandwidth
